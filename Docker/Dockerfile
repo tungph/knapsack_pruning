@@ -6,7 +6,11 @@ WORKDIR /app
 
 
 
-RUN apt-get update && apt-get -y upgrade
+RUN apt-get update && apt-get -y upgrade && apt-get install -y
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/libcublas-dev_10.1.0.105-1_amd64.deb
+RUN dpkg -i libcublas-dev_10.1.0.105-1_amd64.deb
+
+
 RUN git clone https://github.com/NVIDIA/apex
 RUN cd apex && pip install -v --no-cache-dir --global-option="--pyprof" --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 RUN pip install numpy ninja pyyaml mkl mkl-include setuptools cmake cffi typing

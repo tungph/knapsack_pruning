@@ -6,72 +6,8 @@ import logging
 import matplotlib.pyplot as plt
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
-# logging.basicConfig(filename='/mnt/workspace/yonathan/log_infer.txt', level=logging.INFO, format='%(message)s')
-# logging.getLogger().addHandler(logging.StreamHandler())
-# import torch
-# import torch.nn as nn
-# import time
-
-#
-# list_batch_size = [128, 256, 512, 1024, 2048]
-# list_channels = [128, 256, 512, 1024, 2048]
-# list_kernel = [1, 3, 5, 7]
-# list_w = [7, 14, 28, 56, 112, 224]
-# matrix = np.zeros((len(list_batch_size), len(list_channels), len(list_kernel), len(list_w)))
-# logging.info(np.prod(matrix.size))
-#
-# synchronize = True
-#
-# if synchronize:
-#     start = torch.cuda.Event(enable_timing=True)
-#     end = torch.cuda.Event(enable_timing=True)
-#
-# for i1, bs in enumerate(list_batch_size):
-#     for i2, ch in enumerate(list_channels):
-#         for i3, k in enumerate(list_kernel):
-#             for i4, W in enumerate(list_w):
-#                 mod = nn.Conv2d(ch, ch, k, bias=False)
-#                 mod = mod.cuda(device=0)
-#                 mod.eval()
-#                 with torch.no_grad():
-#                     try:
-#                         l = torch.randn(bs, ch, W, W, requires_grad=False).cuda(device=0)
-#                         temp = mod(l)
-#                     except:
-#                         logging.info(
-#                             f"Out of memory for batch size: {bs}, number of channels {ch}, kernel size {k} and input dim {W}")
-#                         torch.cuda.empty_cache()
-#                         continue
-#                     if synchronize:
-#                         start.record()
-#                     else:
-#                         start = time.time()
-#                     try:
-#                         temp2 = mod(l)
-#                     except:
-#                         logging.info(
-#                             f"Out of memory for batch size: {bs}, number of channels {ch}, kernel size {k} and input dim {W}")
-#                         logging.info("*************************************************************")
-#                         torch.cuda.empty_cache()
-#                         continue
-#                     if synchronize:
-#                         end.record()
-#                         torch.cuda.synchronize()
-#                         elapsed = start.elapsed_time(end)
-#                     else:
-#                         elapsed = time.time() - start
-#                     matrix[i1, i2, i3, i4] = elapsed
-#                     logging.info(f"batch size: {bs}, number of channels {ch}, kernel size {k} and input dim {W}")
-#                     logging.info(
-#                         f"MACS:{(W*k*ch)**2} time: elapsed: {elapsed} ms. Ratio = {(W*k*ch)**2/(1e6*elapsed)} Gmacs per second")
-#                     logging.info("*************************************************************")
-#                     torch.cuda.empty_cache()
-
-# file = open("/mnt/workspace/yonathan/infer.txt", "r")
-file = open("/Users/yonathan/Desktop/infer.txt", "r")
-
-lst = file.read().split('\n')
-file.close()
+with open("/Users/yonathan/Desktop/infer.txt", "r") as file:
+    lst = file.read().split('\n')
 
 
 def parse_file(lst):
@@ -96,7 +32,7 @@ def parse_file(lst):
             time = float(data2[1])
             r = batch_size*(ch*dim*k)**2/(1e6*time)
             key = total_macs
-            if key in dct.keys():
+            if key in dct:
                 dct[key].append((batch_size, ch, k, dim, time, r))
             else:
                 dct[key] = [(batch_size, ch, k, dim, time, r)]
@@ -117,7 +53,7 @@ for k, v in dct.items():
         sorted_index = list(np.argsort(lst_ratio)[::-1])
         dct[k] = list(itemgetter(*sorted_index)(v))
     v = dct[k]
-    logging.info(f'{k} : {[x for x in v]}')
+    logging.info(f'{k} : {list(v)}')
     for x in v:
         index_x.append(k)
         index_y.append(x[-2])

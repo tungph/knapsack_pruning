@@ -80,16 +80,15 @@ class SelecSLSBlock(nn.Module):
 
     def forward(self, x):
         assert isinstance(x, list)
-        assert len(x) in [1, 2]
+        assert len(x) in {1, 2}
 
         d1 = self.conv1(x[0])
         d2 = self.conv3(self.conv2(d1))
         d3 = self.conv5(self.conv4(d2))
-        if self.is_first:
-            out = self.conv6(torch.cat([d1, d2, d3], 1))
-            return [out, out]
-        else:
+        if not self.is_first:
             return [self.conv6(torch.cat([d1, d2, d3, x[1]], 1)), x[1]]
+        out = self.conv6(torch.cat([d1, d2, d3], 1))
+        return [out, out]
 
 
 class SelecSLS(nn.Module):
@@ -246,7 +245,7 @@ def _create_model(variant, pretrained, model_kwargs):
         ]
         cfg['num_features'] = 1280
     else:
-        raise ValueError('Invalid net configuration ' + variant + ' !!!')
+        raise ValueError(f'Invalid net configuration {variant} !!!')
 
     model = SelecSLS(cfg, **model_kwargs)
     model.default_cfg = default_cfgs[variant]

@@ -358,9 +358,10 @@ class SENet(nn.Module):
         layers = [block(
             self.inplanes, planes, groups, reduction, stride, downsample)]
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(block(self.inplanes, planes, groups, reduction))
-
+        layers.extend(
+            block(self.inplanes, planes, groups, reduction)
+            for _ in range(1, blocks)
+        )
         return nn.Sequential(*layers)
 
     def get_classifier(self):

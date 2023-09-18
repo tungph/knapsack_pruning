@@ -79,9 +79,7 @@ class ChannelShuffle(nn.Module):
         """Channel shuffle: [N,C,H,W] -> [N,g,C/g,H,W] -> [N,C/g,g,H,w] -> [N,C,H,W]"""
         N, C, H, W = x.size()
         g = self.groups
-        assert C % g == 0, "Incompatible group size {} for input channel {}".format(
-            g, C
-        )
+        assert C % g == 0, f"Incompatible group size {g} for input channel {C}"
         return (
             x.view(N, g, int(C / g), H, W)
             .permute(0, 2, 1, 3, 4)
@@ -121,12 +119,13 @@ class ConvBnAct(nn.Module):
         self.act1 = act_layer(inplace=True)
 
     def feature_info(self, location):
-        if location == 'expansion' or location == 'depthwise':
-            # no expansion or depthwise this block, use act after conv
-            info = dict(module='act1', hook_type='forward', num_chs=self.conv.out_channels)
-        else:  # location == 'bottleneck'
-            info = dict(module='', hook_type='', num_chs=self.conv.out_channels)
-        return info
+        return (
+            dict(
+                module='act1', hook_type='forward', num_chs=self.conv.out_channels
+            )
+            if location in ['expansion', 'depthwise']
+            else dict(module='', hook_type='', num_chs=self.conv.out_channels)
+        )
 
     def forward(self, x):
         x = self.conv(x)
@@ -168,14 +167,21 @@ class DepthwiseSeparableConv(nn.Module):
         self.act2 = act_layer(inplace=True) if self.has_pw_act else nn.Identity()
 
     def feature_info(self, location):
-        if location == 'expansion':
+        if location == 'depthwise':
+            return dict(
+                module='conv_pw',
+                hook_type='forward_pre',
+                num_chs=self.conv_pw.in_channels,
+            )
+        elif location == 'expansion':
             # no expansion in this block, use depthwise, before SE
-            info = dict(module='act1', hook_type='forward', num_chs=self.conv_pw.in_channels)
-        elif location == 'depthwise':  # after SE
-            info = dict(module='conv_pw', hook_type='forward_pre', num_chs=self.conv_pw.in_channels)
-        else:  # location == 'bottleneck'
-            info = dict(module='', hook_type='', num_chs=self.conv_pw.out_channels)
-        return info
+            return dict(
+                module='act1',
+                hook_type='forward',
+                num_chs=self.conv_pw.in_channels,
+            )
+        else:
+            return dict(module='', hook_type='', num_chs=self.conv_pw.out_channels)
 
     def forward(self, x):
         residual = x
@@ -238,13 +244,20 @@ class InvertedResidual(nn.Module):
         self.bn3 = norm_layer(out_chs, **norm_kwargs)
 
     def feature_info(self, location):
-        if location == 'expansion':
-            info = dict(module='act1', hook_type='forward', num_chs=self.conv_pw.in_channels)
-        elif location == 'depthwise':  # after SE
-            info = dict(module='conv_pwl', hook_type='forward_pre', num_chs=self.conv_pwl.in_channels)
-        else:  # location == 'bottleneck'
-            info = dict(module='', hook_type='', num_chs=self.conv_pwl.out_channels)
-        return info
+        if location == 'depthwise':
+            return dict(
+                module='conv_pwl',
+                hook_type='forward_pre',
+                num_chs=self.conv_pwl.in_channels,
+            )
+        elif location == 'expansion':
+            return dict(
+                module='act1',
+                hook_type='forward',
+                num_chs=self.conv_pw.in_channels,
+            )
+        else:
+            return dict(module='', hook_type='', num_chs=self.conv_pwl.out_channels)
 
     def forward(self, x):
         residual = x
@@ -363,14 +376,21 @@ class EdgeResidual(nn.Module):
         self.bn2 = norm_layer(out_chs, **norm_kwargs)
 
     def feature_info(self, location):
-        if location == 'expansion':
-            info = dict(module='act1', hook_type='forward', num_chs=self.conv_exp.out_channels)
-        elif location == 'depthwise':
+        if location == 'depthwise':
             # there is no depthwise, take after SE, before PWL
-            info = dict(module='conv_pwl', hook_type='forward_pre', num_chs=self.conv_pwl.in_channels)
-        else:  # location == 'bottleneck'
-            info = dict(module='', hook_type='', num_chs=self.conv_pwl.out_channels)
-        return info
+            return dict(
+                module='conv_pwl',
+                hook_type='forward_pre',
+                num_chs=self.conv_pwl.in_channels,
+            )
+        elif location == 'expansion':
+            return dict(
+                module='act1',
+                hook_type='forward',
+                num_chs=self.conv_exp.out_channels,
+            )
+        else:
+            return dict(module='', hook_type='', num_chs=self.conv_pwl.out_channels)
 
     def forward(self, x):
         residual = x

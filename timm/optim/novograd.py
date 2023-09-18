@@ -23,10 +23,7 @@ class NovoGrad(Optimizer):
         self._momentum_initialized = False
 
     def step(self, closure=None):
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         if not self._momentum_initialized:
             for group in self.param_groups:
                 for p in group['params']:
@@ -58,7 +55,7 @@ class NovoGrad(Optimizer):
                 grad = p.grad.data
                 g2 = torch.norm(grad)**2
                 grad_ema = g2 if grad_ema is None else grad_ema * \
-                    self._beta2 + g2 * (1. - self._beta2)
+                        self._beta2 + g2 * (1. - self._beta2)
                 grad *= 1.0 / (torch.sqrt(grad_ema) + self._eps)
 
                 if self._grad_averaging:

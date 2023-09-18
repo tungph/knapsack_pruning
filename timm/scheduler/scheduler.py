@@ -34,15 +34,14 @@ class Scheduler:
         self.optimizer = optimizer
         self.param_group_field = param_group_field
         self._initial_param_group_field = f"initial_{param_group_field}"
-        if initialize:
-            for i, group in enumerate(self.optimizer.param_groups):
-                if param_group_field not in group:
+        for i, group in enumerate(self.optimizer.param_groups):
+            if initialize:
+                if param_group_field in group:
+                    group.setdefault(self._initial_param_group_field, group[param_group_field])
+                else:
                     raise KeyError(f"{param_group_field} missing from param_groups[{i}]")
-                group.setdefault(self._initial_param_group_field, group[param_group_field])
-        else:
-            for i, group in enumerate(self.optimizer.param_groups):
-                if self._initial_param_group_field not in group:
-                    raise KeyError(f"{self._initial_param_group_field} missing from param_groups[{i}]")
+            elif self._initial_param_group_field not in group:
+                raise KeyError(f"{self._initial_param_group_field} missing from param_groups[{i}]")
         self.base_values = [group[self._initial_param_group_field] for group in self.optimizer.param_groups]
         self.metric = None  # any point to having this for all?
         self.noise_range_t = noise_range_t

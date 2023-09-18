@@ -207,7 +207,7 @@ class RegStage(nn.Module):
             else:
                 proj_block = None
 
-            name = "b{}".format(i + 1)
+            name = f"b{i + 1}"
             self.add_module(
                 name, block_fn(
                     block_in_chs, out_chs, block_stride, bottle_ratio, group_width, se_ratio,
@@ -257,7 +257,7 @@ class RegNet(nn.Module):
         # Construct the stem
         stem_width = cfg['stem_width']
         self.stem = ConvBnAct(in_chans, stem_width, 3, stride=2)
-        
+
         # Construct the stages
         block_fn = Bottleneck
         prev_width = stem_width
@@ -265,7 +265,9 @@ class RegNet(nn.Module):
         se_ratio = cfg['se_ratio']
         for i, (d, w, s, br, gw) in enumerate(stage_params):
             self.add_module(
-                "s{}".format(i + 1), RegStage(prev_width, w, s, d, block_fn, br, gw, se_ratio))
+                f"s{i + 1}",
+                RegStage(prev_width, w, s, d, block_fn, br, gw, se_ratio),
+            )
             prev_width = w
 
         # Construct the head
@@ -303,8 +305,15 @@ class RegNet(nn.Module):
 
         # Adjust the compatibility of ws and gws
         stage_widths, stage_groups = adjust_widths_groups_comp(stage_widths, stage_bottle_ratios, stage_groups)
-        stage_params = list(zip(stage_depths, stage_widths, stage_strides, stage_bottle_ratios, stage_groups))
-        return stage_params
+        return list(
+            zip(
+                stage_depths,
+                stage_widths,
+                stage_strides,
+                stage_bottle_ratios,
+                stage_groups,
+            )
+        )
 
     def get_classifier(self):
         return self.head.fc

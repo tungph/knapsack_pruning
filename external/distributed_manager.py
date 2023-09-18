@@ -14,7 +14,9 @@ class DistributedManager():
     def set_args(args):
         DistributedManager.distributed = args.distributed
         if args.distributed:
-            logger.info("[{}] >> Setting barrier for group: {} ".format(get_rank(), list(range(0, get_world_size()))))
+            logger.info(
+                f"[{get_rank()}] >> Setting barrier for group: {list(range(0, get_world_size()))} "
+            )
             DistributedManager.grp = new_group(list(range(0, get_world_size())))
             DistributedManager.local_rank = args.local_rank
 
@@ -24,8 +26,7 @@ class DistributedManager():
 
     @staticmethod
     def get_rank_():
-        rank = 0 if not DistributedManager.distributed else get_rank()
-        return rank
+        return 0 if not DistributedManager.distributed else get_rank()
 
     @staticmethod
     def is_first():
@@ -34,6 +35,6 @@ class DistributedManager():
     @staticmethod
     def set_barrier():
         if DistributedManager.distributed:
-            logger.info("[{}] >> Barrier waiting ".format(get_rank()))
+            logger.info(f"[{get_rank()}] >> Barrier waiting ")
             barrier(group=DistributedManager.grp)
-            logger.info("[{}] >> Barrier passed ".format(get_rank()))
+            logger.info(f"[{get_rank()}] >> Barrier passed ")

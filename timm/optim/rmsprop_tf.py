@@ -33,16 +33,16 @@ class RMSpropTF(Optimizer):
 
     def __init__(self, params, lr=1e-2, alpha=0.9, eps=1e-10, weight_decay=0, momentum=0., centered=False,
                  decoupled_decay=False, lr_in_momentum=True):
-        if not 0.0 <= lr:
-            raise ValueError("Invalid learning rate: {}".format(lr))
-        if not 0.0 <= eps:
-            raise ValueError("Invalid epsilon value: {}".format(eps))
-        if not 0.0 <= momentum:
-            raise ValueError("Invalid momentum value: {}".format(momentum))
-        if not 0.0 <= weight_decay:
-            raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
-        if not 0.0 <= alpha:
-            raise ValueError("Invalid alpha value: {}".format(alpha))
+        if lr < 0.0:
+            raise ValueError(f"Invalid learning rate: {lr}")
+        if eps < 0.0:
+            raise ValueError(f"Invalid epsilon value: {eps}")
+        if momentum < 0.0:
+            raise ValueError(f"Invalid momentum value: {momentum}")
+        if weight_decay < 0.0:
+            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+        if alpha < 0.0:
+            raise ValueError(f"Invalid alpha value: {alpha}")
 
         defaults = dict(lr=lr, momentum=momentum, alpha=alpha, eps=eps, centered=centered, weight_decay=weight_decay,
                         decoupled_decay=decoupled_decay, lr_in_momentum=lr_in_momentum)
@@ -61,10 +61,7 @@ class RMSpropTF(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:

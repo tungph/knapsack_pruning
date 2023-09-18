@@ -42,7 +42,7 @@ def create_optimizer(args, model, filter_bias_and_bn=True):
 
     opt_split = opt_lower.split('_')
     opt_lower = opt_split[-1]
-    if opt_lower == 'sgd' or opt_lower == 'nesterov':
+    if opt_lower in ['sgd', 'nesterov']:
         optimizer = optim.SGD(
             parameters, lr=args.lr, momentum=args.momentum, weight_decay=weight_decay, nesterov=True)
     elif opt_lower == 'momentum':
@@ -93,7 +93,7 @@ def create_optimizer(args, model, filter_bias_and_bn=True):
         optimizer = FusedNovoGrad(
             parameters, lr=args.lr, betas=(0.95, 0.98), weight_decay=weight_decay, eps=args.opt_eps)
     else:
-        assert False and "Invalid optimizer"
+        assert False
         raise ValueError
 
     if len(opt_split) > 1:

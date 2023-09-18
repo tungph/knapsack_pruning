@@ -35,10 +35,7 @@ def extract_layer(model, layer):
         layer = layer[1:]
     for l in layer:
         if hasattr(module, l):
-            if not l.isdigit():
-                module = getattr(module, l)
-            else:
-                module = module[int(l)]
+            module = getattr(module, l) if not l.isdigit() else module[int(l)]
         else:
             return module
     return module
@@ -53,40 +50,33 @@ def set_layer(model, layer, val):
     module2 = module
     for l in layer:
         if hasattr(module2, l):
-            if not l.isdigit():
-                module2 = getattr(module2, l)
-            else:
-                module2 = module2[int(l)]
+            module2 = getattr(module2, l) if not l.isdigit() else module2[int(l)]
             lst_index += 1
     lst_index -= 1
     for l in layer[:lst_index]:
-        if not l.isdigit():
-            module = getattr(module, l)
-        else:
-            module = module[int(l)]
+        module = getattr(module, l) if not l.isdigit() else module[int(l)]
     l = layer[lst_index]
     setattr(module, l, val)
 
 
 def extract_conv_layers(model, conv1d=True):
-    list_conv = []
-    for n, p in model.named_modules():
-        if isinstance(p, nn.Conv2d) or (isinstance(p, nn.Conv1d) and conv1d):
-            list_conv.append(n)
-    return list_conv
+    return [
+        n
+        for n, p in model.named_modules()
+        if isinstance(p, nn.Conv2d) or (isinstance(p, nn.Conv1d) and conv1d)
+    ]
 
 
 def extract_layers(model):
-    list_layers = []
-    for n, p in model.named_modules():
-        list_layers.append(n)
-    return list_layers
+    return [n for n, p in model.named_modules()]
 
 
 def compute_stat_svd(model, loss, layers_list, data_loader, taylor=False):
     mean_over_batch = {}
     num_batch = {}
     sv = {}
+
+
 
     class write_state_forward_svd:
         def __init__(self, layer):
@@ -101,7 +91,7 @@ def compute_stat_svd(model, loss, layers_list, data_loader, taylor=False):
             input_reshaped = input_.view(s[0], s[1], -1)
             covar_mat_batch = torch.matmul(input_reshaped, input_reshaped.transpose(2, 1))
             covar_mat_mean_over_batch = 1 / s[0] * covar_mat_batch.sum(dim=0).cpu()
-            if not layer in num_batch:
+            if layer not in num_batch:
                 mean_over_batch[layer] = covar_mat_mean_over_batch
                 num_batch[layer] = torch.Tensor([1])
             else:
@@ -109,6 +99,7 @@ def compute_stat_svd(model, loss, layers_list, data_loader, taylor=False):
                 mean_over_batch[layer] = mean_over_batch[layer]
                 mean_over_batch[layer] = mean_over_batch[layer] * (
                     1 - 1 / num_batch[layer]) + covar_mat_mean_over_batch / num_batch[layer]
+
 
     hook_forward = {}
     for layer in layers_list:
@@ -118,7 +109,7 @@ def compute_stat_svd(model, loss, layers_list, data_loader, taylor=False):
 
     if taylor:
         model.zero_grad()
-    for batch_idx, (input, target) in enumerate(data_loader):
+    for input, target in data_loader:
         input, target = input.cuda(), target.cuda()
         if taylor:
             l = loss(model(input), target)
@@ -168,11 +159,9 @@ def compute_taylor2(model, loss, layers_list, data_loader, len_data_loader=None,
     model.eval()
     if len_data_loader is None:
         len_data_loader = len(data_loader)
-    taylor_per_layer = {}
-    for layer in layers_list:
-        taylor_per_layer[layer] = 0
+    taylor_per_layer = {layer: 0 for layer in layers_list}
     model.cuda()
-    logging.info(f"Using Taylor abs, initializing zero gradient for model")
+    logging.info("Using Taylor abs, initializing zero gradient for model")
     model.zero_grad()
     for batch_idx, (input, target) in enumerate(data_loader):
         if batch_idx == len_data_loader:
@@ -208,7 +197,7 @@ def compute_time_per_layer(model, input_size, batch_size=512):
 
 
 def compute_macs_per_layer(model, input_size, take_in_channel_saving=False):
-    if not (isinstance(input_size, list) or isinstance(input_size, tuple)):
+    if not (isinstance(input_size, (list, tuple))):
         input_size = [3, input_size, input_size]
     input_tensor = torch.randn(1, input_size[0], input_size[1], input_size[2], requires_grad=False)
     if hasattr(model, 'device'):
@@ -216,6 +205,8 @@ def compute_macs_per_layer(model, input_size, take_in_channel_saving=False):
     layers_list = extract_conv_layers(model)
     macs = {}
     hook_forward = {}
+
+
 
     class write_mac_forward:
         def __init__(self, layer):
@@ -229,18 +220,18 @@ def compute_macs_per_layer(model, input_size, take_in_channel_saving=False):
             num_out_channel = output.shape[1]
             num_channel = s[1]
             g = module.groups
+            W = (s[2] - module.weight.shape[2] + 2 * module.padding[0]) / module.stride[0] + 1
             if isinstance(module, nn.Conv2d):
-                W = (s[2] - module.weight.shape[2] + 2 * module.padding[0]) / module.stride[0] + 1
                 H = (s[3] - module.weight.shape[3] + 2 * module.padding[1]) / module.stride[1] + 1
                 size_kernel = module.weight.shape[2] * module.weight.shape[3]
             else:
-                W = (s[2] - module.weight.shape[2] + 2 * module.padding[0]) / module.stride[0] + 1
                 H = 1
                 size_kernel = module.weight.shape[2]
             assert module.weight.shape[1] * g == num_channel and module.weight.shape[0] == num_out_channel
             mac_per_out_channel = int(module.weight.shape[1] * W * H * size_kernel)
             mac_per_in_channel = int(num_out_channel * W * H * size_kernel / g)
             macs[layer] = [mac_per_out_channel, mac_per_out_channel * num_out_channel, mac_per_in_channel]
+
 
     for layer in layers_list:
         layer_ = extract_layer(model, layer)
@@ -253,7 +244,13 @@ def compute_macs_per_layer(model, input_size, take_in_channel_saving=False):
         hook_forward[layer].remove()
         if take_in_channel_saving:
             model2 = model
-            if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.distributed.DistributedDataParallel):
+            if isinstance(
+                model,
+                (
+                    nn.DataParallel,
+                    nn.parallel.distributed.DistributedDataParallel,
+                ),
+            ):
                 model2 = model.module
             if 'resnet' in model2.__class__.__name__.lower():
                 next_layer = compute_next_layer_resnet(layer, model)
@@ -275,9 +272,7 @@ def compute_flops(model, input_size, flops_conv=False):
         flops += v[1]
         flops_per_conv[k] = v[1]
 
-    if flops_conv:
-        return flops, flops_per_conv
-    return flops
+    return (flops, flops_per_conv) if flops_conv else flops
 
 
 def knapsack_dp_efficient(values, weights, capacity, return_all=False):
@@ -317,10 +312,7 @@ def knapsack_dp_efficient(values, weights, capacity, return_all=False):
     picks.sort()
     picks = [x - 1 for x in picks]  # change to 0-index
 
-    if return_all:
-        max_val = table[n_items % 2][capacity]
-        return picks, max_val
-    return picks
+    return (picks, table[n_items % 2][capacity]) if return_all else picks
 
 
 def knapsack_greedy(values, weights, capacity):
@@ -343,11 +335,9 @@ def knapsack_greedy(values, weights, capacity):
     while c > capacity and i < len(l):
         picks.append(l[i])
         c = c - weights[l[i]]
-        i = i + 1
+        i += 1
 
-    picks = list(set(range(n_items)).difference(picks))
-    picks.sort()
-    return picks
+    return sorted(set(range(n_items)).difference(picks))
 
 
 def compute_next_layer_effnet(layer_name, effnet, use_se=True):
@@ -357,8 +347,7 @@ def compute_next_layer_effnet(layer_name, effnet, use_se=True):
     assert layer_name in list_layer
     if layer_name == list_layer[-1]:
         return None
-    next_layer = list_layer[list_layer.index(layer_name) + 1]
-    return next_layer
+    return list_layer[list_layer.index(layer_name) + 1]
 
 
 def compute_next_downsample(layer_name, module):
@@ -371,9 +360,7 @@ def compute_next_downsample(layer_name, module):
     if next_layer is None:
         return None
     next_d = compute_last_layer_of_module_resnet(next_layer, module, downsample=True)
-    if 'downsample' in next_d:
-        return next_d
-    return None
+    return next_d if 'downsample' in next_d else None
 
 
 def compute_next_layer_resnet(layer_name, resnet, downsample=False):
@@ -415,8 +402,10 @@ def compute_next_bn_resnet(layer_name, resnet):
     if layer_name == list_layer[-1]:
         return None
     next_bn = list_layer[list_layer.index(layer_name) + 1]
-    assert extract_layer(resnet, next_bn).__class__.__name__ == 'BatchNorm2d' or extract_layer(resnet,
-                                                                                               next_bn).__class__.__name__ == 'SyncBatchNorm'
+    assert extract_layer(resnet, next_bn).__class__.__name__ in [
+        'BatchNorm2d',
+        'SyncBatchNorm',
+    ]
     return next_bn
 
 
@@ -426,7 +415,7 @@ def check_inputs(values, weights, capacity):
     assert (isinstance(weights, list))
     assert (isinstance(capacity, int))
     # check value type
-    assert (all(isinstance(val, int) or isinstance(val, float) for val in values))
+    assert all(isinstance(val, (int, float)) for val in values)
     assert (all(isinstance(val, int) for val in weights))
     # check validity of value
     assert (all(val >= 0 for val in weights))
@@ -436,7 +425,9 @@ def check_inputs(values, weights, capacity):
 
 def extract_group_of_conv_effnet(model, prune_pwl=True, use_se=True):
     layers_list = extract_conv_layers(model)
-    layers_list = [x for x in layers_list if 'blocks' in x and not 'blocks.0.' in x]
+    layers_list = [
+        x for x in layers_list if 'blocks' in x and 'blocks.0.' not in x
+    ]
     if not use_se:
         layers_list = [x for x in layers_list if '.se.' not in x]
     layers_blocks = []
@@ -460,13 +451,19 @@ def extract_group_of_conv_effnet(model, prune_pwl=True, use_se=True):
         for index in range(len(block)):
             curr_prefix = f'{prefix}.{index}'
             if use_se:
-                list_groups.append(curr_prefix + '.se.conv_reduce')
-                list_groups.append(
-                    [curr_prefix + '.conv_pw', curr_prefix + '.conv_dw', curr_prefix + '.se.conv_expand'])
+                list_groups.extend(
+                    (
+                        f'{curr_prefix}.se.conv_reduce',
+                        [
+                            f'{curr_prefix}.conv_pw',
+                            f'{curr_prefix}.conv_dw',
+                            f'{curr_prefix}.se.conv_expand',
+                        ],
+                    )
+                )
             else:
-                list_groups.append(
-                    [curr_prefix + '.conv_pw', curr_prefix + '.conv_dw'])
-            curr_skip_con.append(curr_prefix + '.conv_pwl')
+                list_groups.append([f'{curr_prefix}.conv_pw', f'{curr_prefix}.conv_dw'])
+            curr_skip_con.append(f'{curr_prefix}.conv_pwl')
         if prune_pwl:
             list_groups.append(curr_skip_con)
     return list_groups, layers_list
@@ -494,8 +491,7 @@ def extract_group_of_conv_resnet(model, prune_skip=True, prune_conv1=False):
             else:
                 group_of_skip[current_layer].append(x)
     if prune_skip:
-        for k, v in group_of_skip.items():
-            list_groups.append(v)
+        list_groups.extend(iter(group_of_skip.values()))
     if prune_conv1:
         layers_list = [x for x in layers_list_init if 'layer' in x and '.se.' not in x or x[:5] == 'conv1']
     return list_groups, layers_list

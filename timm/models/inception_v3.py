@@ -91,7 +91,7 @@ class InceptionV3Aux(nn.Module):
         self.fc = nn.Linear(self.num_features * self.global_pool.feat_mult(), num_classes)
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
                 stddev = m.stddev if hasattr(m, 'stddev') else 0.1
                 trunc_normal_(m.weight, std=stddev)
             elif isinstance(m, nn.BatchNorm2d):
@@ -203,7 +203,7 @@ class InceptionV3(nn.Module):
         self.fc = nn.Linear(2048, num_classes)
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
                 stddev = m.stddev if hasattr(m, 'stddev') else 0.1
                 trunc_normal_(m.weight, std=stddev)
             elif isinstance(m, nn.BatchNorm2d):
@@ -300,8 +300,7 @@ class InceptionA(nn.Module):
         branch_pool = F.avg_pool2d(x, kernel_size=3, stride=1, padding=1)
         branch_pool = self.branch_pool(branch_pool)
 
-        outputs = [branch1x1, branch5x5, branch3x3dbl, branch_pool]
-        return outputs
+        return [branch1x1, branch5x5, branch3x3dbl, branch_pool]
 
     def forward(self, x):
         outputs = self._forward(x)
@@ -329,8 +328,7 @@ class InceptionB(nn.Module):
 
         branch_pool = F.max_pool2d(x, kernel_size=3, stride=2)
 
-        outputs = [branch3x3, branch3x3dbl, branch_pool]
-        return outputs
+        return [branch3x3, branch3x3dbl, branch_pool]
 
     def forward(self, x):
         outputs = self._forward(x)
@@ -374,8 +372,7 @@ class InceptionC(nn.Module):
         branch_pool = F.avg_pool2d(x, kernel_size=3, stride=1, padding=1)
         branch_pool = self.branch_pool(branch_pool)
 
-        outputs = [branch1x1, branch7x7, branch7x7dbl, branch_pool]
-        return outputs
+        return [branch1x1, branch7x7, branch7x7dbl, branch_pool]
 
     def forward(self, x):
         outputs = self._forward(x)
@@ -406,8 +403,7 @@ class InceptionD(nn.Module):
         branch7x7x3 = self.branch7x7x3_4(branch7x7x3)
 
         branch_pool = F.max_pool2d(x, kernel_size=3, stride=2)
-        outputs = [branch3x3, branch7x7x3, branch_pool]
-        return outputs
+        return [branch3x3, branch7x7x3, branch_pool]
 
     def forward(self, x):
         outputs = self._forward(x)
@@ -454,8 +450,7 @@ class InceptionE(nn.Module):
         branch_pool = F.avg_pool2d(x, kernel_size=3, stride=1, padding=1)
         branch_pool = self.branch_pool(branch_pool)
 
-        outputs = [branch1x1, branch3x3, branch3x3dbl, branch_pool]
-        return outputs
+        return [branch1x1, branch3x3, branch3x3dbl, branch_pool]
 
     def forward(self, x):
         outputs = self._forward(x)
@@ -534,29 +529,19 @@ def _inception_v3(variant, pretrained=False, **kwargs):
 
 @register_model
 def inception_v3(pretrained=False, **kwargs):
-    # original PyTorch weights, ported from Tensorflow but modified
-    model = _inception_v3('inception_v3', pretrained=pretrained, **kwargs)
-    return model
+    return _inception_v3('inception_v3', pretrained=pretrained, **kwargs)
 
 
 @register_model
 def tf_inception_v3(pretrained=False, **kwargs):
-    # my port of Tensorflow SLIM weights (http://download.tensorflow.org/models/inception_v3_2016_08_28.tar.gz)
-    model = _inception_v3('tf_inception_v3', pretrained=pretrained, **kwargs)
-    return model
+    return _inception_v3('tf_inception_v3', pretrained=pretrained, **kwargs)
 
 
 @register_model
 def adv_inception_v3(pretrained=False, **kwargs):
-    # my port of Tensorflow adversarially trained Inception V3 from
-    # http://download.tensorflow.org/models/adv_inception_v3_2017_08_18.tar.gz
-    model = _inception_v3('adv_inception_v3', pretrained=pretrained, **kwargs)
-    return model
+    return _inception_v3('adv_inception_v3', pretrained=pretrained, **kwargs)
 
 
 @register_model
 def gluon_inception_v3(pretrained=False, **kwargs):
-    # from gluon pretrained models, best performing in terms of accuracy/loss metrics
-    # https://gluon-cv.mxnet.io/model_zoo/classification.html
-    model = _inception_v3('gluon_inception_v3', pretrained=pretrained, **kwargs)
-    return model
+    return _inception_v3('gluon_inception_v3', pretrained=pretrained, **kwargs)

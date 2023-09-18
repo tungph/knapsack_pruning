@@ -69,7 +69,7 @@ class Bottle2neck(nn.Module):
 
         convs = []
         bns = []
-        for i in range(self.num_scales):
+        for _ in range(self.num_scales):
             convs.append(nn.Conv2d(
                 width, width, kernel_size=3, stride=stride, padding=first_dilation,
                 dilation=first_dilation, groups=cardinality, bias=False))

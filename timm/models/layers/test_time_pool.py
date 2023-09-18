@@ -39,8 +39,9 @@ def apply_test_time_pool(model, config, args):
     if not args.no_test_pool and \
             config['input_size'][-1] > model.default_cfg['input_size'][-1] and \
             config['input_size'][-2] > model.default_cfg['input_size'][-2]:
-        logging.info('Target input size %s > pretrained default %s, using test time pooling' %
-                     (str(config['input_size'][-2:]), str(model.default_cfg['input_size'][-2:])))
+        logging.info(
+            f"Target input size {str(config['input_size'][-2:])} > pretrained default {str(model.default_cfg['input_size'][-2:])}, using test time pooling"
+        )
         model = TestTimePoolHead(model, original_pool=model.default_cfg['pool_size'])
         test_time_pool = True
     return model, test_time_pool

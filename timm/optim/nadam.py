@@ -38,10 +38,7 @@ class Nadam(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
                 and returns the loss.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
+        loss = closure() if closure is not None else None
         for group in self.param_groups:
             for p in group['params']:
                 if p.grad is None:
@@ -69,9 +66,9 @@ class Nadam(Optimizer):
                     grad = grad.add(group['weight_decay'], p.data)
 
                 momentum_cache_t = beta1 * \
-                    (1. - 0.5 * (0.96 ** (t * schedule_decay)))
+                        (1. - 0.5 * (0.96 ** (t * schedule_decay)))
                 momentum_cache_t_1 = beta1 * \
-                    (1. - 0.5 * (0.96 ** ((t + 1) * schedule_decay)))
+                        (1. - 0.5 * (0.96 ** ((t + 1) * schedule_decay)))
                 m_schedule_new = m_schedule * momentum_cache_t
                 m_schedule_next = m_schedule * momentum_cache_t * momentum_cache_t_1
                 state['m_schedule'] = m_schedule_new

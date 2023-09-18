@@ -3,7 +3,6 @@ from .constants import *
 
 
 def resolve_data_config(args, default_cfg={}, model=None, verbose=True):
-    new_config = {}
     default_cfg = default_cfg
     if not default_cfg and model is not None and hasattr(model, 'default_cfg'):
         default_cfg = model.default_cfg
@@ -24,10 +23,7 @@ def resolve_data_config(args, default_cfg={}, model=None, verbose=True):
         input_size = (in_chans, args['img_size'], args['img_size'])
     elif 'input_size' in default_cfg:
         input_size = default_cfg['input_size']
-    new_config['input_size'] = input_size
-
-    # resolve interpolation method
-    new_config['interpolation'] = 'bicubic'
+    new_config = {'input_size': input_size, 'interpolation': 'bicubic'}
     if 'interpolation' in args and args['interpolation']:
         new_config['interpolation'] = args['interpolation']
     elif 'interpolation' in default_cfg:

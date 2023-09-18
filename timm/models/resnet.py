@@ -127,8 +127,7 @@ default_cfgs = {
 
 
 def get_padding(kernel_size, stride, dilation=1):
-    padding = ((stride - 1) + dilation * (kernel_size - 1)) // 2
-    return padding
+    return ((stride - 1) + dilation * (kernel_size - 1)) // 2
 
 
 class BasicBlock(nn.Module):
@@ -382,7 +381,7 @@ class ResNet(nn.Module):
                  block_reduce_first=1, down_kernel_size=1, avg_down=False, output_stride=32,
                  act_layer=nn.ReLU, norm_layer=nn.BatchNorm2d, aa_layer=None, drop_rate=0.0, drop_path_rate=0.,
                  drop_block_rate=0., global_pool='avg', zero_init_last_bn=True, block_args=None):
-        block_args = block_args or dict()
+        block_args = block_args or {}
         self.num_classes = num_classes
         deep_stem = 'deep' in stem_type
         self.inplanes = stem_width * 2 if deep_stem else 64

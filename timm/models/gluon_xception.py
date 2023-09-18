@@ -63,14 +63,13 @@ _USE_FIXED_PAD = False
 def _pytorch_padding(kernel_size, stride=1, dilation=1, **_):
     if _USE_FIXED_PAD:
         return 0  # FIXME remove once verified
-    else:
-        padding = ((stride - 1) + dilation * (kernel_size - 1)) // 2
+    padding = ((stride - 1) + dilation * (kernel_size - 1)) // 2
 
-        # FIXME remove once verified
-        fp = _fixed_padding(kernel_size, dilation)
-        assert all(padding == p for p in fp)
+    # FIXME remove once verified
+    fp = _fixed_padding(kernel_size, dilation)
+    assert all(padding == p for p in fp)
 
-        return padding
+    return padding
 
 
 def _fixed_padding(kernel_size, dilation):

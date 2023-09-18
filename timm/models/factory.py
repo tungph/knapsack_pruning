@@ -47,12 +47,11 @@ def create_model(
     if kwargs.get('drop_path_rate', None) is None:
         kwargs.pop('drop_path_rate', None)
 
-    if is_model(model_name):
-        create_fn = model_entrypoint(model_name)
-        model = create_fn(**margs, **kwargs)
-    else:
-        raise RuntimeError('Unknown model (%s)' % model_name)
+    if not is_model(model_name):
+        raise RuntimeError(f'Unknown model ({model_name})')
 
+    create_fn = model_entrypoint(model_name)
+    model = create_fn(**margs, **kwargs)
     if checkpoint_path:
         load_checkpoint(model, checkpoint_path)
 

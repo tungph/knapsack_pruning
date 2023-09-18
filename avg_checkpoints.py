@@ -36,12 +36,9 @@ parser.add_argument('-n', type=int, default=10, metavar='N',
 def checkpoint_metric(checkpoint_path):
     if not checkpoint_path or not os.path.isfile(checkpoint_path):
         return {}
-    print("=> Extracting metric from checkpoint '{}'".format(checkpoint_path))
+    print(f"=> Extracting metric from checkpoint '{checkpoint_path}'")
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
-    metric = None
-    if 'metric' in checkpoint:
-        metric = checkpoint['metric']
-    return metric
+    return checkpoint['metric'] if 'metric' in checkpoint else None
 
 
 def main():
@@ -52,7 +49,7 @@ def main():
     args.sort = not args.no_sort
 
     if os.path.exists(args.output):
-        print("Error: Output filename ({}) already exists.".format(args.output))
+        print(f"Error: Output filename ({args.output}) already exists.")
         exit(1)
 
     pattern = args.input
@@ -82,7 +79,7 @@ def main():
     for c in avg_checkpoints:
         new_state_dict = load_state_dict(c, args.use_ema)
         if not new_state_dict:
-            print("Error: Checkpoint ({}) doesn't exist".format(args.checkpoint))
+            print(f"Error: Checkpoint ({args.checkpoint}) doesn't exist")
             continue
 
         for k, v in new_state_dict.items():
@@ -106,7 +103,7 @@ def main():
     torch.save(final_state_dict, args.output)
     with open(args.output, 'rb') as f:
         sha_hash = hashlib.sha256(f.read()).hexdigest()
-    print("=> Saved state_dict to '{}, SHA256: {}'".format(args.output, sha_hash))
+    print(f"=> Saved state_dict to '{args.output}, SHA256: {sha_hash}'")
 
 
 if __name__ == '__main__':

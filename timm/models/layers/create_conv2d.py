@@ -19,12 +19,14 @@ def create_conv2d(in_chs, out_chs, kernel_size, **kwargs):
         assert 'num_experts' not in kwargs  # MixNet + CondConv combo not supported currently
         # We're going to use only lists for defining the MixedConv2d kernel groups,
         # ints, tuples, other iterables will continue to pass to normal conv and specify h, w.
-        m = MixedConv2d(in_chs, out_chs, kernel_size, **kwargs)
+        return MixedConv2d(in_chs, out_chs, kernel_size, **kwargs)
     else:
         depthwise = kwargs.pop('depthwise', False)
         groups = out_chs if depthwise else 1
-        if 'num_experts' in kwargs and kwargs['num_experts'] > 0:
-            m = CondConv2d(in_chs, out_chs, kernel_size, groups=groups, **kwargs)
-        else:
-            m = create_conv2d_pad(in_chs, out_chs, kernel_size, groups=groups, **kwargs)
-    return m
+        return (
+            CondConv2d(in_chs, out_chs, kernel_size, groups=groups, **kwargs)
+            if 'num_experts' in kwargs and kwargs['num_experts'] > 0
+            else create_conv2d_pad(
+                in_chs, out_chs, kernel_size, groups=groups, **kwargs
+            )
+        )

@@ -31,12 +31,12 @@ def main():
     args = parser.parse_args()
 
     if os.path.exists(args.output):
-        print("Error: Output filename ({}) already exists.".format(args.output))
+        print(f"Error: Output filename ({args.output}) already exists.")
         exit(1)
 
     # Load an existing checkpoint to CPU, strip everything but the state_dict and re-save
     if args.checkpoint and os.path.isfile(args.checkpoint):
-        print("=> Loading checkpoint '{}'".format(args.checkpoint))
+        print(f"=> Loading checkpoint '{args.checkpoint}'")
         checkpoint = torch.load(args.checkpoint, map_location='cpu')
 
         new_state_dict = OrderedDict()
@@ -55,7 +55,7 @@ def main():
                 continue
             name = k[7:] if k.startswith('module') else k
             new_state_dict[name] = v
-        print("=> Loaded state_dict from '{}'".format(args.checkpoint))
+        print(f"=> Loaded state_dict from '{args.checkpoint}'")
 
         torch.save(new_state_dict, _TEMP_NAME)
         with open(_TEMP_NAME, 'rb') as f:
@@ -69,9 +69,9 @@ def main():
             checkpoint_base = os.path.splitext(args.checkpoint)[0]
         final_filename = '-'.join([checkpoint_base, sha_hash[:8]]) + '.pth'
         shutil.move(_TEMP_NAME, os.path.join(checkpoint_root, final_filename))
-        print("=> Saved state_dict to '{}, SHA256: {}'".format(final_filename, sha_hash))
+        print(f"=> Saved state_dict to '{final_filename}, SHA256: {sha_hash}'")
     else:
-        print("Error: Checkpoint ({}) doesn't exist".format(args.checkpoint))
+        print(f"Error: Checkpoint ({args.checkpoint}) doesn't exist")
 
 
 if __name__ == '__main__':

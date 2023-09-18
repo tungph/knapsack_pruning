@@ -93,16 +93,10 @@ class TanhLRScheduler(Scheduler):
         return lrs
 
     def get_epoch_values(self, epoch: int):
-        if self.t_in_epochs:
-            return self._get_lr(epoch)
-        else:
-            return None
+        return self._get_lr(epoch) if self.t_in_epochs else None
 
     def get_update_values(self, num_updates: int):
-        if not self.t_in_epochs:
-            return self._get_lr(num_updates)
-        else:
-            return None
+        return self._get_lr(num_updates) if not self.t_in_epochs else None
 
     def get_cycle_length(self, cycles=0):
         if not cycles:

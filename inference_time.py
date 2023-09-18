@@ -46,16 +46,20 @@ total_time, dict_time = measure_time(model, input_size=data_config['input_size']
 print(f"Inference speed is {batch_size / total_time} images/second")
 print(f"Inference took: {total_time}")
 
-dict_layer_macs = {}
-for n, p in model.named_modules():
-    if (len(n.split('.')) == 2 and n[:5] != 'conv1' and n.split('.')[0] != 'global_pool') or n == 'conv1':
-        dict_layer_macs[n] = 0
-
+dict_layer_macs = {
+    n: 0
+    for n, p in model.named_modules()
+    if (
+        len(n.split('.')) == 2
+        and n[:5] != 'conv1'
+        and n.split('.')[0] != 'global_pool'
+    )
+    or n == 'conv1'
+}
 total_time2 = 0
 total_GF = 0
 for n, p in model.named_modules():
-    if isinstance(p, nn.Conv2d) or isinstance(p,
-                                              nn.Conv1d):  # or isinstance(p, nn.BatchNorm2d) or isinstance(p, nn.ReLU) or isinstance(p,
+    if isinstance(p, (nn.Conv2d, nn.Conv1d)):  # or isinstance(p, nn.BatchNorm2d) or isinstance(p, nn.ReLU) or isinstance(p,
         # nn.AdaptiveAvgPool2d) or isinstance(p, nn.Linear) or isinstance(p, nn.AdaptiveMaxPool2d):
         v = dict_time[n]
         if n.split('.')[0] in dict_layer_macs:

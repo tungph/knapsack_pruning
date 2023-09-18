@@ -16,9 +16,7 @@ def mixup_target(target, num_classes, lam=1., smoothing=0.0, device='cuda'):
 
 
 def mixup_batch(input, target, alpha=0.2, num_classes=1000, smoothing=0.1, disable=False):
-    lam = 1.
-    if not disable:
-        lam = np.random.beta(alpha, alpha)
+    lam = np.random.beta(alpha, alpha) if not disable else 1.
     input = input.mul(lam).add_(1 - lam, input.flip(0))
     target = mixup_target(target, num_classes, lam, smoothing)
     return input, target

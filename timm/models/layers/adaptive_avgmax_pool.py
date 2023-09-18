@@ -15,10 +15,7 @@ import torch.nn.functional as F
 
 
 def adaptive_pool_feat_mult(pool_type='avg'):
-    if pool_type == 'catavgmax':
-        return 2
-    else:
-        return 1
+    return 2 if pool_type == 'catavgmax' else 1
 
 
 def adaptive_avgmax_pool2d(x, output_size=1):
@@ -45,7 +42,7 @@ def select_adaptive_pool2d(x, pool_type='avg', output_size=1):
     elif pool_type == 'max':
         x = F.adaptive_max_pool2d(x, output_size)
     else:
-        assert False, 'Invalid pool type: %s' % pool_type
+        assert False, f'Invalid pool type: {pool_type}'
     return x
 
 
@@ -83,7 +80,7 @@ class SelectAdaptivePool2d(nn.Module):
             self.pool = nn.AdaptiveMaxPool2d(output_size)
         else:
             if pool_type != 'avg':
-                assert False, 'Invalid pool type: %s' % pool_type
+                assert False, f'Invalid pool type: {pool_type}'
             self.pool = nn.AdaptiveAvgPool2d(output_size)
 
     def forward(self, x):
@@ -96,6 +93,4 @@ class SelectAdaptivePool2d(nn.Module):
         return adaptive_pool_feat_mult(self.pool_type)
 
     def __repr__(self):
-        return self.__class__.__name__ + ' (' \
-               + 'output_size=' + str(self.output_size) \
-               + ', pool_type=' + self.pool_type + ')'
+        return f'{self.__class__.__name__} (output_size={str(self.output_size)}, pool_type={self.pool_type})'

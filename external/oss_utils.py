@@ -141,8 +141,8 @@ class ImageFolderOss(object):
 
         url_parsed = urlparse(self.url)
         self.prefix = url_parsed.path.lstrip('/')
-        if not self.prefix[-1] == '/':
-            self.prefix = self.prefix + '/'
+        if self.prefix[-1] != '/':
+            self.prefix = f'{self.prefix}/'
         self.name_bucket = url_parsed.netloc
         self.auth = oss2.Auth(access_key, secret)
 
@@ -157,7 +157,7 @@ class ImageFolderOss(object):
                     f'Bucket: {url_parsed.netloc}')
 
         if len(self.keys_relative) == 0:
-            raise (RuntimeError("Found 0 files in sub folders of: " + self.url))
+            raise RuntimeError(f"Found 0 files in sub folders of: {self.url}")
 
     @staticmethod
     def loader(data):
@@ -280,15 +280,13 @@ class ImageFolderOss(object):
     def get_items(self, indices):
         # Required since OSS SDK doesn't support multiprocessing gracefully
         self._worker_bucket = self._worker_bucket if self._worker_bucket is not None else \
-            oss2.Bucket(self.auth, self.endpoint, self.name_bucket)
+                oss2.Bucket(self.auth, self.endpoint, self.name_bucket)
         self._aio_session = self._aio_session if self._aio_session is not None \
-            else aiohttp.ClientSession(raise_for_status=True, headers={"Connection": "close"})
+                else aiohttp.ClientSession(raise_for_status=True, headers={"Connection": "close"})
 
         loop = asyncio.get_event_loop()
         tasks = [self._get_async(self._aio_session, index) for index in indices]
-        res = loop.run_until_complete(asyncio.gather(*tasks))
-
-        return res
+        return loop.run_until_complete(asyncio.gather(*tasks))
 
     def __getitem__(self, index):
         """
@@ -336,40 +334,43 @@ def get_files(path: PathOrStr, extensions: Collection[str] = None, recurse: bool
             else:
                 d[:] = [o for o in d if not o.startswith('.')]
             res += _get_files(path, p, f, extensions)
-        if presort: res = sorted(res, key=lambda p: _path_to_same_str(p), reverse=False)
-        return res
     else:
         f = [o.name for o in os.scandir(path) if o.is_file()]
         res = _get_files(path, path, f, extensions)
-        if presort: res = sorted(res, key=lambda p: _path_to_same_str(p), reverse=False)
-        return res
+
+    if presort: res = sorted(res, key=lambda p: _path_to_same_str(p), reverse=False)
+    return res
 
 
 def _path_to_same_str(p_fn):
     "path -> str, but same on nt+posix, for alpha-sort only"
     s_fn = str(p_fn)
     s_fn = s_fn.replace('\\', '.')
-    s_fn = s_fn.replace('/', '.')
-    return s_fn
+    return s_fn.replace('/', '.')
 
 
 def _get_files(parent, p, f, extensions):
     p = Path(p).relative_to(parent)
     if isinstance(extensions, str): extensions = [extensions]
     low_extensions = [e.lower() for e in extensions] if extensions is not None else None
-    res = [p / o for o in f if not o.startswith('.')
-           and (extensions is None or f'.{o.split(".")[-1].lower()}' in low_extensions)]
-    return res
+    return [
+        p / o
+        for o in f
+        if not o.startswith('.')
+        and (
+            extensions is None
+            or f'.{o.split(".")[-1].lower()}' in low_extensions
+        )
+    ]
 
 
 def build_oss_asset_info(args):
-    oss_asset_info = {
+    return {
         'oss_access_key_id': args.oss_access_key_id,
         'oss_access_key_secret': args.oss_access_key_secret,
         'oss_dataset_path': args.oss_dataset_path,
-        'oss_endpoint': args.oss_dataset_endpoint
+        'oss_endpoint': args.oss_dataset_endpoint,
     }
-    return oss_asset_info
 
 
 def upload_dir_to_oss(oss_asset_info, dir_in: str):
@@ -395,7 +396,9 @@ def upload_file_to_oss(oss_asset_info, fname_in: str, fname_out: str):
 
     bucket.put_object_from_file(os.path.join(url_dataset_path, fname_out), fname_in)
 
-    logger.info("Saving file: [{}] to OSS path: [{}].".format(fname_in, url_dataset_path + fname_out))
+    logger.info(
+        f"Saving file: [{fname_in}] to OSS path: [{url_dataset_path + fname_out}]."
+    )
 
     return
 
@@ -409,9 +412,9 @@ def copy_model_from_http(checkpoint_path):
         except:
             pass
 
-        str_cpy = 'curl ' + checkpoint_path + ' --output ' + target_file
+        str_cpy = f'curl {checkpoint_path} --output {target_file}'
         logger.info(f"Downloading model from HTTP: {checkpoint_path}")
-        logger.info("RUNNING: " + str_cpy)
+        logger.info(f"RUNNING: {str_cpy}")
 
         subprocess.check_output(str_cpy, shell=True)
     dist.set_barrier()
@@ -432,10 +435,16 @@ def get_oss_dataset(oss_dataset_path, oss_endpoint, oss_access_key, oss_secret, 
     :return:
     """
     set_dataloader_batch_fetch()
-    train_data = ImageFolderOss(oss_dataset_path + 'train/', oss_endpoint, access_key=oss_access_key,
-                                secret=oss_secret, transform=train_transform,
-                                from_index=not oss_make_index, make_index=oss_make_index,
-                                check_corrupted_files=check_corrupted_files)
+    train_data = ImageFolderOss(
+        f'{oss_dataset_path}train/',
+        oss_endpoint,
+        access_key=oss_access_key,
+        secret=oss_secret,
+        transform=train_transform,
+        from_index=not oss_make_index,
+        make_index=oss_make_index,
+        check_corrupted_files=check_corrupted_files,
+    )
     valid_data = ImageFolderOss(oss_dataset_path + oss_val_dir, oss_endpoint, access_key=oss_access_key,
                                 secret=oss_secret, transform=valid_transform,
                                 from_index=not oss_make_index, make_index=oss_make_index,

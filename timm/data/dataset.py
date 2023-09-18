@@ -46,7 +46,9 @@ def load_class_map(filename, root=''):
     class_map_path = filename
     if not os.path.exists(class_map_path):
         class_map_path = os.path.join(root, filename)
-        assert os.path.exists(class_map_path), 'Cannot locate specified class map file (%s)' % filename
+        assert os.path.exists(
+            class_map_path
+        ), f'Cannot locate specified class map file ({filename})'
     class_map_ext = os.path.splitext(filename)[-1].lower()
     if class_map_ext == '.txt':
         with open(class_map_path) as f:
@@ -65,13 +67,13 @@ class Dataset(data.Dataset):
             transform=None,
             class_map=''):
 
-        class_to_idx = None
-        if class_map:
-            class_to_idx = load_class_map(class_map, root)
+        class_to_idx = load_class_map(class_map, root) if class_map else None
         images, class_to_idx = find_images_and_targets(root, class_to_idx=class_to_idx)
         if len(images) == 0:
-            raise(RuntimeError("Found 0 images in subfolders of: " + root + "\n"
-                               "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
+            raise RuntimeError(
+                f"Found 0 images in subfolders of: {root}" + "\n"
+                "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)
+            )
         self.root = root
         self.samples = images
         self.imgs = self.samples  # torchvision ImageFolder compat
@@ -93,15 +95,15 @@ class Dataset(data.Dataset):
 
     def filenames(self, indices=[], basename=False):
         if indices:
-            if basename:
-                return [os.path.basename(self.samples[i][0]) for i in indices]
-            else:
-                return [self.samples[i][0] for i in indices]
+            return (
+                [os.path.basename(self.samples[i][0]) for i in indices]
+                if basename
+                else [self.samples[i][0] for i in indices]
+            )
+        if basename:
+            return [os.path.basename(x[0]) for x in self.samples]
         else:
-            if basename:
-                return [os.path.basename(x[0]) for x in self.samples]
-            else:
-                return [x[0] for x in self.samples]
+            return [x[0] for x in self.samples]
 
 
 def _extract_tar_info(tarfile, class_to_idx=None, sort=True):
@@ -130,9 +132,7 @@ class DatasetTar(data.Dataset):
 
     def __init__(self, root, load_bytes=False, transform=None, class_map=''):
 
-        class_to_idx = None
-        if class_map:
-            class_to_idx = load_class_map(class_map, root)
+        class_to_idx = load_class_map(class_map, root) if class_map else None
         assert os.path.isfile(root)
         self.root = root
         with tarfile.open(root) as tf:  # cannot keep this open across processes, reopen later
@@ -189,8 +189,10 @@ class AugMixDataset(torch.utils.data.Dataset):
         x, y = self.dataset[i]  # all splits share the same dataset base transform
         x_list = [self._normalize(x)]  # first split only normalizes (this is the 'clean' split)
         # run the full augmentation on the remaining splits
-        for _ in range(self.num_splits - 1):
-            x_list.append(self._normalize(self.augmentation(x)))
+        x_list.extend(
+            self._normalize(self.augmentation(x))
+            for _ in range(self.num_splits - 1)
+        )
         return tuple(x_list), y
 
     def __len__(self):

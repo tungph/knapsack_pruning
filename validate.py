@@ -102,7 +102,7 @@ def validate(args):
             except Exception as e:
                 raise RuntimeError(e)
 
-    param_count = sum([m.numel() for m in model.parameters()])
+    param_count = sum(m.numel() for m in model.parameters())
     logging.info('Model %s created, param count: %d' % (args.model, param_count))
 
     data_config = resolve_data_config(vars(args), model=model)
@@ -207,24 +207,25 @@ def main():
     model_names = []
     if os.path.isdir(args.checkpoint):
         # validate all checkpoints in a path with same model
-        checkpoints = glob.glob(args.checkpoint + '/*.pth.tar')
-        checkpoints += glob.glob(args.checkpoint + '/*.pth')
+        checkpoints = glob.glob(f'{args.checkpoint}/*.pth.tar')
+        checkpoints += glob.glob(f'{args.checkpoint}/*.pth')
         model_names = list_models(args.model)
         model_cfgs = [(args.model, c) for c in sorted(checkpoints, key=natural_key)]
-    else:
-        if args.model == 'all':
-            # validate all models in a list of names with pretrained checkpoints
-            args.pretrained = True
-            model_names = list_models(pretrained=True)
-            model_cfgs = [(n, '') for n in model_names]
-        elif not is_model(args.model):
-            # model name doesn't exist, try as wildcard filter
-            model_names = list_models(args.model)
-            model_cfgs = [(n, '') for n in model_names]
+    elif args.model == 'all':
+        # validate all models in a list of names with pretrained checkpoints
+        args.pretrained = True
+        model_names = list_models(pretrained=True)
+        model_cfgs = [(n, '') for n in model_names]
+    elif not is_model(args.model):
+        # model name doesn't exist, try as wildcard filter
+        model_names = list_models(args.model)
+        model_cfgs = [(n, '') for n in model_names]
 
     if len(model_cfgs):
         results_file = args.results_file or './results-all.csv'
-        logging.info('Running bulk validation on these pretrained models: {}'.format(', '.join(model_names)))
+        logging.info(
+            f"Running bulk validation on these pretrained models: {', '.join(model_names)}"
+        )
         results = []
         try:
             start_batch_size = args.batch_size

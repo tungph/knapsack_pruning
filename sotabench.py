@@ -395,7 +395,7 @@ for m in model_list:
     model_name = m['model']
     # create model from name
     model = create_model(model_name, pretrained=True)
-    param_count = sum([m.numel() for m in model.parameters()])
+    param_count = sum(m.numel() for m in model.parameters())
     print('Model %s, %s created. Param count: %d' % (model_name, m['paper_model_name'], param_count))
 
     # get appropriate transform for model's default pretrained config

@@ -58,11 +58,10 @@ class FastGlobalAvgPool2d(nn.Module):
         self.flatten = flatten
 
     def forward(self, x):
-        if self.flatten:
-            in_size = x.size()
-            return x.view((in_size[0], in_size[1], -1)).mean(dim=2)
-        else:
+        if not self.flatten:
             return x.view(x.size(0), x.size(1), -1).mean(-1).view(x.size(0), x.size(1), 1, 1)
+        in_size = x.size()
+        return x.view((in_size[0], in_size[1], -1)).mean(dim=2)
 
     def feat_mult(self):
         return 1
@@ -111,13 +110,12 @@ class BasicBlock(nn.Module):
         super(BasicBlock, self).__init__()
         if stride == 1:
             self.conv1 = conv2d_ABN(inplanes, planes, stride=1, activation_param=1e-3)
+        elif anti_alias_layer is None:
+            self.conv1 = conv2d_ABN(inplanes, planes, stride=2, activation_param=1e-3)
         else:
-            if anti_alias_layer is None:
-                self.conv1 = conv2d_ABN(inplanes, planes, stride=2, activation_param=1e-3)
-            else:
-                self.conv1 = nn.Sequential(
-                    conv2d_ABN(inplanes, planes, stride=1, activation_param=1e-3),
-                    anti_alias_layer(channels=planes, filt_size=3, stride=2))
+            self.conv1 = nn.Sequential(
+                conv2d_ABN(inplanes, planes, stride=1, activation_param=1e-3),
+                anti_alias_layer(channels=planes, filt_size=3, stride=2))
 
         self.conv2 = conv2d_ABN(planes, planes, stride=1, activation="identity")
         self.relu = nn.ReLU(inplace=True)
@@ -127,11 +125,7 @@ class BasicBlock(nn.Module):
         self.se = FastSEModule(planes * self.expansion, reduce_layer_planes) if use_se else None
 
     def forward(self, x):
-        if self.downsample is not None:
-            residual = self.downsample(x)
-        else:
-            residual = x
-
+        residual = self.downsample(x) if self.downsample is not None else x
         out = self.conv1(x)
         out = self.conv2(out)
 
@@ -153,14 +147,13 @@ class Bottleneck(nn.Module):
         if stride == 1:
             self.conv2 = conv2d_ABN(
                 planes, planes, kernel_size=3, stride=1, activation="leaky_relu", activation_param=1e-3)
+        elif anti_alias_layer is None:
+            self.conv2 = conv2d_ABN(
+                planes, planes, kernel_size=3, stride=2, activation="leaky_relu", activation_param=1e-3)
         else:
-            if anti_alias_layer is None:
-                self.conv2 = conv2d_ABN(
-                    planes, planes, kernel_size=3, stride=2, activation="leaky_relu", activation_param=1e-3)
-            else:
-                self.conv2 = nn.Sequential(
-                    conv2d_ABN(planes, planes, kernel_size=3, stride=1, activation="leaky_relu", activation_param=1e-3),
-                    anti_alias_layer(channels=planes, filt_size=3, stride=2))
+            self.conv2 = nn.Sequential(
+                conv2d_ABN(planes, planes, kernel_size=3, stride=1, activation="leaky_relu", activation_param=1e-3),
+                anti_alias_layer(channels=planes, filt_size=3, stride=2))
 
         self.conv3 = conv2d_ABN(
             planes, planes * self.expansion, kernel_size=1, stride=1, activation="identity")
@@ -173,11 +166,7 @@ class Bottleneck(nn.Module):
         self.se = FastSEModule(planes, reduce_layer_planes) if use_se else None
 
     def forward(self, x):
-        if self.downsample is not None:
-            residual = self.downsample(x)
-        else:
-            residual = x
-
+        residual = self.downsample(x) if self.downsample is not None else x
         out = self.conv1(x)
         out = self.conv2(out)
         if self.se is not None:
@@ -237,7 +226,7 @@ class TResNet(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='leaky_relu')
-            elif isinstance(m, nn.BatchNorm2d) or isinstance(m, InPlaceABN):
+            elif isinstance(m, (nn.BatchNorm2d, InPlaceABN)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
@@ -264,9 +253,15 @@ class TResNet(nn.Module):
         layers.append(block(
             self.inplanes, planes, stride, downsample, use_se=use_se, anti_alias_layer=anti_alias_layer))
         self.inplanes = planes * block.expansion
-        for i in range(1, blocks):
-            layers.append(
-                block(self.inplanes, planes, use_se=use_se, anti_alias_layer=anti_alias_layer))
+        layers.extend(
+            block(
+                self.inplanes,
+                planes,
+                use_se=use_se,
+                anti_alias_layer=anti_alias_layer,
+            )
+            for _ in range(1, blocks)
+        )
         return nn.Sequential(*layers)
 
     def get_classifier(self):

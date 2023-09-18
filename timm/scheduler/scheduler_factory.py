@@ -7,16 +7,15 @@ from .plateau_lr import PlateauLRScheduler
 def create_scheduler(args, optimizer):
     num_epochs = args.epochs
 
-    if args.lr_noise is not None:
-        if isinstance(args.lr_noise, (list, tuple)):
-            noise_range = [n * num_epochs for n in args.lr_noise]
-            if len(noise_range) == 1:
-                noise_range = noise_range[0]
-        else:
-            noise_range = args.lr_noise * num_epochs
-    else:
+    if args.lr_noise is None:
         noise_range = None
 
+    elif isinstance(args.lr_noise, (list, tuple)):
+        noise_range = [n * num_epochs for n in args.lr_noise]
+        if len(noise_range) == 1:
+            noise_range = noise_range[0]
+    else:
+        noise_range = args.lr_noise * num_epochs
     lr_scheduler = None
     #FIXME expose cycle parms of the scheduler config to arguments
     if args.sched == 'cosine':

@@ -149,8 +149,7 @@ def _filter_pretrained(state_dict):
         r'^(.*denselayer\d+\.(?:norm|relu|conv))\.((?:[12])\.(?:weight|bias|running_mean|running_var))$')
 
     for key in list(state_dict.keys()):
-        res = pattern.match(key)
-        if res:
+        if res := pattern.match(key):
             new_key = res.group(1) + res.group(2)
             state_dict[new_key] = state_dict[key]
             del state_dict[key]

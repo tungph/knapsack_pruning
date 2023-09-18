@@ -19,10 +19,7 @@ class ConvBnAct(nn.Module):
         self.bn = norm_layer(out_channels)
         self.aa = aa_layer(channels=out_channels) if stride == 2 and use_aa else None
         self.drop_block = drop_block
-        if act_layer is not None:
-            self.act = act_layer(inplace=True)
-        else:
-            self.act = None
+        self.act = act_layer(inplace=True) if act_layer is not None else None
 
     def forward(self, x):
         x = self.conv(x)

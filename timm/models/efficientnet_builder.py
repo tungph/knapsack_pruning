@@ -11,10 +11,7 @@ from .efficientnet_blocks import *
 
 
 def _parse_ksize(ss):
-    if ss.isdigit():
-        return int(ss)
-    else:
-        return [int(k) for k in ss.split('.')]
+    return int(ss) if ss.isdigit() else [int(k) for k in ss.split('.')]
 
 
 def _decode_block_str(block_str):
@@ -56,12 +53,12 @@ def _decode_block_str(block_str):
             # activation fn
             key = op[0]
             v = op[1:]
-            if v == 're':
-                value = nn.ReLU
+            if v == 'hs':
+                value = HardSwish
             elif v == 'r6':
                 value = nn.ReLU6
-            elif v == 'hs':
-                value = HardSwish
+            elif v == 're':
+                value = nn.ReLU
             elif v == 'sw':
                 value = Swish
             else:
@@ -75,7 +72,7 @@ def _decode_block_str(block_str):
                 options[key] = value
 
     # if act_layer is None, the model default (passed to model init) will be used
-    act_layer = options['n'] if 'n' in options else None
+    act_layer = options.get('n', None)
     exp_kernel_size = _parse_ksize(options['a']) if 'a' in options else 1
     pw_kernel_size = _parse_ksize(options['p']) if 'p' in options else 1
     fake_in_chs = int(options['fc']) if 'fc' in options else 0  # FIXME hack to deal with in_chs issue in TPU def
@@ -97,7 +94,7 @@ def _decode_block_str(block_str):
         )
         if 'cc' in options:
             block_args['num_experts'] = int(options['cc'])
-    elif block_type == 'ds' or block_type == 'dsa':
+    elif block_type in ['ds', 'dsa']:
         block_args = dict(
             block_type=block_type,
             dw_kernel_size=_parse_ksize(options['k']),
@@ -131,7 +128,7 @@ def _decode_block_str(block_str):
             act_layer=act_layer,
         )
     else:
-        assert False, 'Unknown block type (%s)' % block_type
+        assert False, f'Unknown block type ({block_type})'
 
     return block_args, num_repeat
 
@@ -187,7 +184,7 @@ def decode_arch_def(arch_def, depth_multiplier=1.0, depth_trunc='ceil', experts_
                 ba['num_experts'] *= experts_multiplier
             stack_args.append(ba)
             repeats.append(rep)
-        if fix_first_last and (stack_idx == 0 or stack_idx == len(arch_def) - 1):
+        if fix_first_last and stack_idx in [0, len(arch_def) - 1]:
             arch_args.append(_scale_stage_depth(stack_args, repeats, 1.0, depth_trunc))
         else:
             arch_args.append(_scale_stage_depth(stack_args, repeats, depth_multiplier, depth_trunc))
@@ -246,29 +243,29 @@ class EfficientNetBuilder:
             ba['drop_path_rate'] = drop_path_rate
             ba['se_kwargs'] = self.se_kwargs
             if self.verbose:
-                logging.info('  InvertedResidual {}, Args: {}'.format(block_idx, str(ba)))
+                logging.info(f'  InvertedResidual {block_idx}, Args: {str(ba)}')
             if ba.get('num_experts', 0) > 0:
                 block = CondConvResidual(**ba)
             else:
                 block = InvertedResidual(**ba)
-        elif bt == 'ds' or bt == 'dsa':
+        elif bt in ['ds', 'dsa']:
             ba['drop_path_rate'] = drop_path_rate
             ba['se_kwargs'] = self.se_kwargs
             if self.verbose:
-                logging.info('  DepthwiseSeparable {}, Args: {}'.format(block_idx, str(ba)))
+                logging.info(f'  DepthwiseSeparable {block_idx}, Args: {str(ba)}')
             block = DepthwiseSeparableConv(**ba)
         elif bt == 'er':
             ba['drop_path_rate'] = drop_path_rate
             ba['se_kwargs'] = self.se_kwargs
             if self.verbose:
-                logging.info('  EdgeResidual {}, Args: {}'.format(block_idx, str(ba)))
+                logging.info(f'  EdgeResidual {block_idx}, Args: {str(ba)}')
             block = EdgeResidual(**ba)
         elif bt == 'cn':
             if self.verbose:
-                logging.info('  ConvBnAct {}, Args: {}'.format(block_idx, str(ba)))
+                logging.info(f'  ConvBnAct {block_idx}, Args: {str(ba)}')
             block = ConvBnAct(**ba)
         else:
-            assert False, 'Uknkown block type (%s) while building model.' % bt
+            assert False, f'Uknkown block type ({bt}) while building model.'
         self.in_chs = ba['out_chs']  # update in_chs for arg of next block
 
         return block
@@ -285,7 +282,7 @@ class EfficientNetBuilder:
         if self.verbose:
             logging.info('Building model trunk with %d stages...' % len(model_block_args))
         self.in_chs = in_chs
-        total_block_count = sum([len(x) for x in model_block_args])
+        total_block_count = sum(len(x) for x in model_block_args)
         total_block_idx = 0
         current_stride = 2
         current_dilation = 1
@@ -295,7 +292,7 @@ class EfficientNetBuilder:
         for stage_idx, stage_block_args in enumerate(model_block_args):
             last_stack = stage_idx == (len(model_block_args) - 1)
             if self.verbose:
-                logging.info('Stack: {}'.format(stage_idx))
+                logging.info(f'Stack: {stage_idx}')
             assert isinstance(stage_block_args, list)
 
             blocks = []
@@ -304,7 +301,7 @@ class EfficientNetBuilder:
                 last_block = block_idx == (len(stage_block_args) - 1)
                 extract_features = ''  # No features extracted
                 if self.verbose:
-                    logging.info(' Block: {}'.format(block_idx))
+                    logging.info(f' Block: {block_idx}')
 
                 # Sort out stride, dilation, and feature extraction details
                 assert block_args['stride'] in (1, 2)
@@ -313,7 +310,7 @@ class EfficientNetBuilder:
                     block_args['stride'] = 1
 
                 do_extract = False
-                if self.feature_location == 'bottleneck' or self.feature_location == 'depthwise':
+                if self.feature_location in ['bottleneck', 'depthwise']:
                     if last_block:
                         next_stage_idx = stage_idx + 1
                         if next_stage_idx >= len(model_block_args):
@@ -334,8 +331,9 @@ class EfficientNetBuilder:
                         next_dilation = current_dilation * block_args['stride']
                         block_args['stride'] = 1
                         if self.verbose:
-                            logging.info('  Converting stride to dilation to maintain output_stride=={}'.format(
-                                self.output_stride))
+                            logging.info(
+                                f'  Converting stride to dilation to maintain output_stride=={self.output_stride}'
+                            )
                     else:
                         current_stride = next_output_stride
                 block_args['dilation'] = current_dilation
@@ -350,7 +348,10 @@ class EfficientNetBuilder:
                 if extract_features:
                     feature_info = block.feature_info(extract_features)
                     if feature_info['module']:
-                        feature_info['module'] = 'blocks.{}.{}.'.format(stage_idx, block_idx) + feature_info['module']
+                        feature_info['module'] = (
+                            f'blocks.{stage_idx}.{block_idx}.'
+                            + feature_info['module']
+                        )
                     feature_info['stage_idx'] = stage_idx
                     feature_info['block_idx'] = block_idx
                     feature_info['reduction'] = current_stride
@@ -395,9 +396,7 @@ def _init_weight_goog(m, n='', fix_group_fanout=True):
         m.bias.data.zero_()
     elif isinstance(m, nn.Linear):
         fan_out = m.weight.size(0)  # fan-out
-        fan_in = 0
-        if 'routing_fn' in n:
-            fan_in = m.weight.size(1)
+        fan_in = m.weight.size(1) if 'routing_fn' in n else 0
         init_range = 1.0 / math.sqrt(fan_in + fan_out)
         m.weight.data.uniform_(-init_range, init_range)
         m.bias.data.zero_()

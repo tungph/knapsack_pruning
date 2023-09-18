@@ -104,7 +104,7 @@ from timm.models import create_model
 setup_default_logging()
 data_loader0 = []
 bs0 = 5
-for i in range(2):
+for _ in range(2):
     with torch.no_grad():
         l = torch.randn(bs0, 3, 224, 224, requires_grad=False).cuda(device=0)
         data_loader0.append((l, torch.LongTensor(bs0).random_(0, 999).cuda(device=0)))
@@ -184,7 +184,7 @@ torch.cuda.empty_cache()
 with torch.no_grad():
     t = torch.randn(bs1, 3, 224, 224, requires_grad=False).cuda(device=0)
     start = time.time()
-    for i in range(5):
+    for _ in range(5):
         a = resnet50(t)
     torch.cuda.synchronize(device=0)
     end = time.time()
@@ -192,7 +192,7 @@ with torch.no_grad():
     print(f'******************************************************resnet50 :{1e4*(end-start)/5}')
     t = torch.randn(bs2, 3, 224, 224, requires_grad=False).cuda(device=1)
     start = time.time()
-    for i in range(5):
+    for _ in range(5):
         b = new_net(t)
     torch.cuda.synchronize(device=1)
     end = time.time()
@@ -216,8 +216,7 @@ for k, v in dict_resnet.items():
             f'{k} took {v} for resnet and {dict_new_net[k]} for new_net ({dict_new_net[k]/v} time ratio and {mac2/mac1} macs ratio)')
     else:
         print(f'{k} took {v} for resnet and {dict_new_net[k]} for new_net')
-        if isinstance(l1, nn.BatchNorm2d) or isinstance(l1, nn.Conv2d) or isinstance(l1, nn.ReLU) or isinstance(l1,
-                                                                                                                nn.Linear):
+        if isinstance(l1, (nn.BatchNorm2d, nn.Conv2d, nn.ReLU, nn.Linear)):
             total_sum_resnet += v
             total_sum_new_net += dict_new_net[k]
 print(1e4 * total_sum_new_net / bs2)

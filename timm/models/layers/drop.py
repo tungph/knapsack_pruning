@@ -154,8 +154,7 @@ def drop_path(x, drop_prob: float = 0., training: bool = False):
     keep_prob = 1 - drop_prob
     random_tensor = keep_prob + torch.rand((x.size()[0], 1, 1, 1), dtype=x.dtype, device=x.device)
     random_tensor.floor_()  # binarize
-    output = x.div(keep_prob) * random_tensor
-    return output
+    return x.div(keep_prob) * random_tensor
 
 
 class DropPath(nn.ModuleDict):

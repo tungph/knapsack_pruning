@@ -36,8 +36,7 @@ def compute_next_layer_effnet(layer_name, effnet):
     assert layer_name in list_layer
     if layer_name == list_layer[-1]:
         return None
-    next_layer = list_layer[list_layer.index(layer_name) + 1]
-    return next_layer
+    return list_layer[list_layer.index(layer_name) + 1]
 
 
 def compute_next_layer_resnet(layer_name, resnet, downsample=False):
@@ -52,11 +51,7 @@ def compute_next_layer_resnet(layer_name, resnet, downsample=False):
 
 
 def extract_conv_layers(model):
-    list_conv = []
-    for n, p in model.named_modules():
-        if isinstance(p, nn.Conv2d):
-            list_conv.append(n)
-    return list_conv
+    return [n for n, p in model.named_modules() if isinstance(p, nn.Conv2d)]
 
 
 def compute_macs_per_layer(model, input_size, take_in_channel_saving=False):
@@ -98,7 +93,13 @@ def compute_macs_per_layer(model, input_size, take_in_channel_saving=False):
         hook_forward[layer].remove()
         if take_in_channel_saving:
             model2 = model
-            if isinstance(model, nn.DataParallel) or isinstance(model, nn.parallel.distributed.DistributedDataParallel):
+            if isinstance(
+                model,
+                (
+                    nn.DataParallel,
+                    nn.parallel.distributed.DistributedDataParallel,
+                ),
+            ):
                 model2 = model.module
             if 'resnet' in model2.__class__.__name__.lower():
                 next_layer = compute_next_layer_resnet(layer, model)
@@ -121,10 +122,7 @@ def extract_layer(model, layer):
         layer = layer[1:]
     for l in layer:
         if hasattr(module, l):
-            if not l.isdigit():
-                module = getattr(module, l)
-            else:
-                module = module[int(l)]
+            module = getattr(module, l) if not l.isdigit() else module[int(l)]
         else:
             return module
     return module
@@ -139,17 +137,11 @@ def set_layer(model, layer, val):
     module2 = module
     for l in layer:
         if hasattr(module2, l):
-            if not l.isdigit():
-                module2 = getattr(module2, l)
-            else:
-                module2 = module2[int(l)]
+            module2 = getattr(module2, l) if not l.isdigit() else module2[int(l)]
             lst_index += 1
     lst_index -= 1
     for l in layer[:lst_index]:
-        if not l.isdigit():
-            module = getattr(module, l)
-        else:
-            module = module[int(l)]
+        module = getattr(module, l) if not l.isdigit() else module[int(l)]
     l = layer[lst_index]
     setattr(module, l, val)
 
@@ -172,9 +164,10 @@ def adapt_model_from_string(parent_module, model_string, input_size):
         if shape[0] != '':
             state_dict[key] = [int(i) for i in shape]
 
-    is_module = isinstance(parent_module, DDP) or isinstance(parent_module,
-                                                             nn.parallel.DistributedDataParallel) or isinstance(
-        parent_module, nn.DataParallel)
+    is_module = isinstance(
+        parent_module,
+        (DDP, nn.parallel.DistributedDataParallel, nn.DataParallel),
+    )
     if is_module:
         new_module = deepcopy(parent_module.module)
     else:
@@ -183,12 +176,9 @@ def adapt_model_from_string(parent_module, model_string, input_size):
         if is_module:
             n = '.'.join(n.split('.')[1:])
         old_module = extract_layer(parent_module, n)
-        if isinstance(old_module, nn.Conv2d) or isinstance(old_module, Conv2dSame):
-            if isinstance(old_module, Conv2dSame):
-                conv = Conv2dSame
-            else:
-                conv = nn.Conv2d
-            s = state_dict[n + '.weight']
+        if isinstance(old_module, (nn.Conv2d, Conv2dSame)):
+            conv = Conv2dSame if isinstance(old_module, Conv2dSame) else nn.Conv2d
+            s = state_dict[f'{n}.weight']
             in_channels = s[1]
             out_channels = s[0]
             if old_module.groups > 1:
@@ -202,10 +192,13 @@ def adapt_model_from_string(parent_module, model_string, input_size):
                             groups=g, stride=old_module.stride)
             set_layer(new_module, n, new_conv)
         if isinstance(old_module, nn.BatchNorm2d):
-            new_bn = nn.BatchNorm2d(num_features=state_dict[n + '.weight'][0], eps=old_module.eps,
-                                    momentum=old_module.momentum,
-                                    affine=old_module.affine,
-                                    track_running_stats=True)
+            new_bn = nn.BatchNorm2d(
+                num_features=state_dict[f'{n}.weight'][0],
+                eps=old_module.eps,
+                momentum=old_module.momentum,
+                affine=old_module.affine,
+                track_running_stats=True,
+            )
             set_layer(new_module, n, new_bn)
 
     new_module.eval()
@@ -214,31 +207,23 @@ def adapt_model_from_string(parent_module, model_string, input_size):
     macs_new_module = compute_macs_per_layer(new_module, [3, input_size, input_size])
     macs_old_module = compute_macs_per_layer(parent_module, [3, input_size, input_size])
 
-    total_mac_old = 0
-    total_mac_new = 0
-    for k, v in macs_new_module.items():
-        total_mac_new += v[1]
-    for k, v in macs_old_module.items():
-        total_mac_old += v[1]
-
+    total_mac_new = sum(v[1] for k, v in macs_new_module.items())
+    total_mac_old = sum(v[1] for k, v in macs_old_module.items())
     logging.info("Actual total mac saved: {0:2.3f}%".format(100 * (total_mac_old - total_mac_new) / total_mac_old))
-    logging.info("Previous MAC: {}, new MAC : {}".format(total_mac_old, total_mac_new))
+    logging.info(f"Previous MAC: {total_mac_old}, new MAC : {total_mac_new}")
 
     return new_module
 
 
 def save_dict_to_string(state_dict, separator='***'):
-    lst_out = []
-    for k, v in state_dict.items():
-        lst_out.append(f'{k}:{list(v.shape)}')
+    lst_out = [f'{k}:{list(v.shape)}' for k, v in state_dict.items()]
     return separator.join(lst_out)
 
 
 def save_state_dict(path1, path2, model_name, input_size=224):
     state_dict = torch.load(path1)
     state_dict = state_dict['state_dict_ema']
-    new_dict = {}
-    new_dict['state_dict'] = state_dict
+    new_dict = {'state_dict': state_dict}
     torch.save(new_dict, path2)
 
     model_string = save_dict_to_string(state_dict)
